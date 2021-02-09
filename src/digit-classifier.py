@@ -34,8 +34,20 @@ N_BINS = 9
 
 hog = cv2.HOGDescriptor(WIN_SIZE, BLOCK_SIZE, STEP_SIZE, CELL_SIZE, N_BINS)
 
+
 def compute_hog(img):
+    '''
+    Helper function to parallelize the computing 
+    of the HOGs in the images
+    '''
     return hog.compute(img)
+
+def read_img_bw(path):
+    '''
+    Helper function to parallelize the reading of
+    all the images in the dataset
+    '''
+    return cv2.imread(path, 0)
     
 
 def load_training_data():
@@ -49,52 +61,41 @@ def load_training_data():
     """ 
     print("Cargando imágenes")
 
-    training_data = []
-    classes = []    
+    # create a pool with the number of cores
+    pool = mp.Pool(mp.cpu_count())
 
-    # Train para 0
-    zero_images = []
+    # labels array
+    classes = []  
+
+    # all the imgs will lie here  
+    img_paths = []
+
+    # get all the paths for 0s and 1s, and append the labels
     for filename in os.listdir(PATH_TO_TRAIN_0):
         # using path.join guarantees compatibility across platforms
-        filename = os.path.join(PATH_TO_TRAIN_0, filename)
-
-        # 0 is a flag to read the img in grayscale, removing the channels
-        img = cv2.imread(filename, 0)
+        img_paths.append(os.path.join(PATH_TO_TRAIN_0, filename))
         classes.append(0)
-        
-        zero_images.append(img)
 
-
-    pool = mp.Pool(mp.cpu_count())
-
-    predictors = pool.map(compute_hog, zero_images)
-    training_data.extend(predictors)
-
-    pool.close()
-    pool.join()
-
-    # Train para 1
-    one_images = []
     for filename in os.listdir(PATH_TO_TRAIN_1):
-        filename = os.path.join(PATH_TO_TRAIN_1, filename)
-
-        img = cv2.imread(filename, 0)
+        # using path.join guarantees compatibility across platforms
+        img_paths.append(os.path.join(PATH_TO_TRAIN_1, filename))
         classes.append(1)
-        
-        one_images.append(img)
-        
 
-    pool = mp.Pool(mp.cpu_count())
+    # having all the paths, we can read all the imgs
+    # in parallel, which is much faster
+    images = pool.map(read_img_bw, img_paths)
 
-    predictors = pool.map(compute_hog, one_images)
-    training_data.extend(predictors)
-
+    # and compute the hogs also in parallel
+    predictors = pool.map(compute_hog, images)
+    
+    # important: always close the pool
     pool.close()
     pool.join()
 
     print("Imágenes cargadas")
 
-    return np.array(training_data), np.array(classes)
+    # return all the data collected
+    return np.array(predictors), np.array(classes)
 
 def train(training_data, classes, kernel=cv2.ml.SVM_LINEAR):
     """
@@ -116,9 +117,13 @@ def train(training_data, classes, kernel=cv2.ml.SVM_LINEAR):
     return svm
 
 
-def get_random_sample_tests(n=40):
+def get_random_sample_tests(n=10):
     img_arrays = []
     classes = []
+
+    # we could use some parallelization here, but for
+    # small numbers like 10 as an example it is not 
+    # really worth it.
 
     # os listdir order is arbitrary, so each time
     # we'll get a different set of images
@@ -149,9 +154,7 @@ def run_example(predict_imgs, labels):
 
     training_data, classes = load_training_data()       
 
-    classifier = train(training_data, classes)
-    print("Clasificador entrenado")          
-
+    classifier = train(training_data, classes)     
     
     # Clasificamos
 
@@ -159,7 +162,6 @@ def run_example(predict_imgs, labels):
     hogs = pool.map(compute_hog, predict_imgs)
 
     predictions = [classifier.predict(hog.reshape(1, -1))[1][0][0] for hog in hogs]
-    print(predictions)
 
     # Very simple score measure
     score = np.count_nonzero(predictions == labels)
@@ -167,8 +169,9 @@ def run_example(predict_imgs, labels):
 
 
 if __name__ == "__main__":
-    random_samples = get_random_sample_tests()
+    random_samples = get_random_sample_tests(40)
 
+    # extract the images and the labels to check the score
     random_imgs = [pair[0] for pair in random_samples]
     random_labels = [pair[1] for pair in random_samples]
 
