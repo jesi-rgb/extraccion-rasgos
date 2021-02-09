@@ -19,6 +19,7 @@ import numpy as np
 import os
 import multiprocessing as mp
 from sklearn.model_selection import KFold
+import pandas as pd
 
 PATH_TO_TRAIN_0 = "mnist_data/train/zero"
 PATH_TO_TRAIN_1 = "mnist_data/train/one"
@@ -112,6 +113,7 @@ def train(training_data, classes, kernel=cv2.ml.SVM_LINEAR):
     svm = cv2.ml.SVM_create()
     svm.setType(cv2.ml.SVM_C_SVC)
     svm.setKernel(kernel)
+    svm.setDegree(2)
     svm.train(training_data, cv2.ml.ROW_SAMPLE, classes)
 
 
@@ -154,21 +156,37 @@ def test(model, predict_imgs_hog):
 
 if __name__ == "__main__":
 
+
+    df = pd.DataFrame(columns=['kernel', 'mean', 'sd'])
+    training_data, classes = load_training_data() 
+    # kernels = {"linear":cv2.ml.SVM_LINEAR, "polynomial":cv2.ml.SVM_POLY, "rbf":cv2.ml.SVM_RBF, "sigmoid":cv2.ml.SVM_SIGMOID, "chi2":cv2.ml.SVM_CHI2}
+    kernels = {"linear":cv2.ml.SVM_LINEAR, "polynomial":cv2.ml.SVM_POLY}
     kfold = KFold(n_splits=5)
 
     # load all the images
-    training_data, classes = load_training_data() 
     classifiers = []
     test_acc = []
-    for train_index, test_index in kfold.split(training_data):
-        X_train, X_test = training_data[train_index], training_data[test_index]
-        y_train, y_test = classes[train_index], classes[test_index]
-        model = train(X_train, y_train)
-        classifiers.append(model)
 
-        test_pred = test(model, X_test)
-        score = [p == l for p, l in zip(test_pred, y_test)]
-        test_acc.append(np.count_nonzero(score) / len(X_test) * 100)
+
+    for kernel in kernels.keys():
+        print(kernel)
+        i = 1
+        for train_index, test_index in kfold.split(training_data):
+            print("Training fold:", i)
+            X_train, X_test = training_data[train_index], training_data[test_index]
+            y_train, y_test = classes[train_index], classes[test_index]
+            
+            model = train(X_train, y_train, kernels[kernel])
+            classifiers.append(model)
+
+            test_pred = test(model, X_test)
+            score = [p == l for p, l in zip(test_pred, y_test)]
+            test_acc.append(np.count_nonzero(score) / len(X_test) * 100)
+            i = i + 1
+
+        df = df.append({"kernel":kernel, "mean":np.mean(test_acc), "sd":np.std(test_acc)}, ignore_index=True)
+        
+    print(df)
         
 
     print(test_acc)
@@ -183,9 +201,14 @@ if __name__ == "__main__":
     # compute the hogs
     pool = mp.Pool(mp.cpu_count())
     random_hogs = pool.map(compute_hog, random_imgs)
+
+
+    
     pool.close()
     pool.join()
     
+
+
     for model in classifiers:
         test_pred = test(model, random_hogs)
         # # Very simple score measure
