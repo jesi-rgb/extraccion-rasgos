@@ -18,6 +18,7 @@ import cv2
 import numpy as np
 import os
 import multiprocessing as mp
+from sklearn.model_selection import KFold
 
 PATH_TO_TRAIN_0 = "mnist_data/train/zero"
 PATH_TO_TRAIN_1 = "mnist_data/train/one"
@@ -32,7 +33,7 @@ CELL_SIZE = (4, 4)
 N_BINS = 9
 
 
-hog = cv2.HOGDescriptor(WIN_SIZE, BLOCK_SIZE, STEP_SIZE, CELL_SIZE, N_BINS)
+HOG = cv2.HOGDescriptor(WIN_SIZE, BLOCK_SIZE, STEP_SIZE, CELL_SIZE, N_BINS)
 
 
 def compute_hog(img):
@@ -40,7 +41,7 @@ def compute_hog(img):
     Helper function to parallelize the computing 
     of the HOGs in the images
     '''
-    return hog.compute(img)
+    return HOG.compute(img)
 
 def read_img_bw(path):
     '''
@@ -112,8 +113,8 @@ def train(training_data, classes, kernel=cv2.ml.SVM_LINEAR):
     svm.setType(cv2.ml.SVM_C_SVC)
     svm.setKernel(kernel)
     svm.train(training_data, cv2.ml.ROW_SAMPLE, classes)
-    
-    print("Finalizado training")
+
+
     return svm
 
 
@@ -146,33 +147,48 @@ def get_random_sample_tests(n=10):
     return imgs_classes
 
     
+def test(model, predict_imgs):
+    return [int(model.predict(hog.reshape(1, -1))[1][0][0]) for hog in predict_imgs]
 
-def run_example(predict_imgs, labels):
-    """
-    Prueba de entrenamiento de un clasificador
-    """
-
-    training_data, classes = load_training_data()       
-
-    classifier = train(training_data, classes)     
-    
-    # Clasificamos
-
-    pool = mp.Pool(mp.cpu_count())
-    hogs = pool.map(compute_hog, predict_imgs)
-
-    predictions = [classifier.predict(hog.reshape(1, -1))[1][0][0] for hog in hogs]
-
-    # Very simple score measure
-    score = np.count_nonzero(predictions == labels)
-    print("Score right/all: {}".format(score))
 
 
 if __name__ == "__main__":
-    random_samples = get_random_sample_tests(40)
+
+    kfold = KFold(n_splits=5)
+
+
+    # load all the images
+    training_data, classes = load_training_data() 
+    classifiers = []
+    test_acc = []
+    for train_index, test_index in kfold.split(training_data):
+        X_train, X_test = training_data[train_index], training_data[test_index]
+        y_train, y_test = classes[train_index], classes[test_index]
+        model = train(X_train, y_train)
+        classifiers.append(model)
+        test_acc.append(np.count_nonzero(test(model, X_test) == y_test) / len(X_test))
+        
+
+    print(test_acc)
+    
+    # get some images to predict
+    random_samples = get_random_sample_tests(-1)
 
     # extract the images and the labels to check the score
     random_imgs = [pair[0] for pair in random_samples]
     random_labels = [pair[1] for pair in random_samples]
 
-    run_example(random_imgs, random_labels)
+    # compute the hogs
+    pool = mp.Pool(mp.cpu_count())
+    random_hogs = pool.map(compute_hog, random_imgs)
+    pool.close()
+    pool.join()
+    
+    for model in classifiers:
+        test_pred = test(model, random_hogs)
+        # # Very simple score measure
+        score = np.count_nonzero([p == l for p, l in zip(test_pred, random_labels)]) / len(random_labels)
+        print("Score right/all: {}%".format(score * 100))
+
+
+
