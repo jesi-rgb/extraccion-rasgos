@@ -22,6 +22,9 @@ from multiprocessing.pool import ThreadPool as Pool
 from sklearn.model_selection import KFold
 import pandas as pd
 
+import time
+
+
 PATH_TO_TRAIN_0 = "mnist_data/train/zero"
 PATH_TO_TRAIN_1 = "mnist_data/train/one"
 PATH_TO_TEST_0 = "mnist_data/test/zero"
@@ -113,7 +116,7 @@ def train_kernels(training_data, classes, kernel=cv2.ml.SVM_LINEAR):
     cv2.SVM: un clasificador SVM
     """
 
-    print("training on kernel:", kernel)
+    print("Training on kernel:", kernel)
 
     svm = cv2.ml.SVM_create()
     svm.setType(cv2.ml.SVM_C_SVC)
@@ -160,6 +163,8 @@ def test(model, predict_imgs_hog):
 
 if __name__ == "__main__":
 
+    print("\n\n")
+    start_time = time.time()
     training_data, classes = load_training_data() 
     kernels = {"linear":cv2.ml.SVM_LINEAR, "polynomial":cv2.ml.SVM_POLY, "rbf":cv2.ml.SVM_RBF, "sigmoid":cv2.ml.SVM_SIGMOID}
     df = pd.DataFrame(columns=kernels.keys())
@@ -214,4 +219,4 @@ if __name__ == "__main__":
         print("Score right/all: {}%".format(score * 100))
 
 
-
+    print("--- Total execution took {} seconds ---".format(time.time() - start_time))
