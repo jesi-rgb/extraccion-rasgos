@@ -147,15 +147,14 @@ def get_random_sample_tests(n=10):
     return imgs_classes
 
     
-def test(model, predict_imgs):
-    return [int(model.predict(hog.reshape(1, -1))[1][0][0]) for hog in predict_imgs]
+def test(model, predict_imgs_hog):
+    return [int(model.predict(hog.reshape(1, -1))[1][0][0]) for hog in predict_imgs_hog]
 
 
 
 if __name__ == "__main__":
 
     kfold = KFold(n_splits=5)
-
 
     # load all the images
     training_data, classes = load_training_data() 
@@ -166,7 +165,10 @@ if __name__ == "__main__":
         y_train, y_test = classes[train_index], classes[test_index]
         model = train(X_train, y_train)
         classifiers.append(model)
-        test_acc.append(np.count_nonzero(test(model, X_test) == y_test) / len(X_test))
+
+        test_pred = test(model, X_test)
+        score = [p == l for p, l in zip(test_pred, y_test)]
+        test_acc.append(np.count_nonzero(score) / len(X_test) * 100)
         
 
     print(test_acc)
