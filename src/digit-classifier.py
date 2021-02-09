@@ -17,6 +17,7 @@ los dígitos 0 y 1.
 import cv2
 import numpy as np
 import os
+import multiprocessing as mp
 
 PATH_TO_TRAIN_0 = "mnist_data/train/zero"
 PATH_TO_TRAIN_1 = "mnist_data/train/one"
@@ -29,8 +30,13 @@ BLOCK_SIZE = (8, 8)
 STEP_SIZE = (2, 2)
 CELL_SIZE = (4, 4)
 N_BINS = 9
+
+
 hog = cv2.HOGDescriptor(WIN_SIZE, BLOCK_SIZE, STEP_SIZE, CELL_SIZE, N_BINS)
 
+def compute_hog(img):
+    return hog.compute(img)
+    
 
 def load_training_data():
     """
@@ -41,31 +47,52 @@ def load_training_data():
     np.array: numpy array con los descriptores de las imágenes leídas
     np.array: numpy array con las etiquetas de las imágenes leídas
     """ 
+    print("Cargando imágenes")
 
     training_data = []
     classes = []    
 
     # Train para 0
+    zero_images = []
     for filename in os.listdir(PATH_TO_TRAIN_0):
-            # using path.join guarantees compatibility across platforms
-            filename = os.path.join(PATH_TO_TRAIN_0, filename)
-            
-            # 0 is a flag to read the img in grayscale, removing the channels
-            img = cv2.imread(filename, 0)
-            
-            descriptor = hog.compute(img)
-            training_data.append(descriptor)
-            classes.append(0)
+        # using path.join guarantees compatibility across platforms
+        filename = os.path.join(PATH_TO_TRAIN_0, filename)
+
+        # 0 is a flag to read the img in grayscale, removing the channels
+        img = cv2.imread(filename, 0)
+        classes.append(0)
+        
+        zero_images.append(img)
+
+
+    pool = mp.Pool(mp.cpu_count())
+
+    predictors = pool.map(compute_hog, zero_images)
+    training_data.extend(predictors)
+
+    pool.close()
+    pool.join()
 
     # Train para 1
+    one_images = []
     for filename in os.listdir(PATH_TO_TRAIN_1):
-            filename = os.path.join(PATH_TO_TRAIN_1, filename)
+        filename = os.path.join(PATH_TO_TRAIN_1, filename)
 
-            img = cv2.imread(filename, 0)
-            
-            descriptor = hog.compute(img)
-            training_data.append(descriptor)
-            classes.append(1)
+        img = cv2.imread(filename, 0)
+        classes.append(1)
+        
+        one_images.append(img)
+        
+
+    pool = mp.Pool(mp.cpu_count())
+
+    predictors = pool.map(compute_hog, one_images)
+    training_data.extend(predictors)
+
+    pool.close()
+    pool.join()
+
+    print("Imágenes cargadas")
 
     return np.array(training_data), np.array(classes)
 
@@ -85,6 +112,7 @@ def train(training_data, classes, kernel=cv2.ml.SVM_LINEAR):
     svm.setKernel(kernel)
     svm.train(training_data, cv2.ml.ROW_SAMPLE, classes)
     
+    print("Finalizado training")
     return svm
 
 
@@ -109,7 +137,7 @@ def get_random_sample_tests(n=40):
     #shuffles in place
     np.random.shuffle(imgs_classes)
 
-
+    print("Tomando imágenes aleatorias para test")
     return imgs_classes
 
     
@@ -126,10 +154,13 @@ def run_example(predict_imgs, labels):
 
     
     # Clasificamos
-    # hogs = [hog.compute(img) for img in predict_imgs]
-    hogs = map(hog.compute, predict_imgs)
+
+    pool = mp.Pool(mp.cpu_count())
+    hogs = pool.map(compute_hog, predict_imgs)
+
     predictions = [classifier.predict(hog.reshape(1, -1))[1][0][0] for hog in hogs]
     print(predictions)
+
     # Very simple score measure
     score = np.count_nonzero(predictions == labels)
     print("Score right/all: {}".format(score))
