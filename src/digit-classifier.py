@@ -18,6 +18,7 @@ import cv2
 import numpy as np
 import os
 import multiprocessing as mp
+from multiprocessing.pool import ThreadPool as Pool
 from sklearn.model_selection import KFold
 import pandas as pd
 
@@ -64,7 +65,7 @@ def load_training_data():
     print("Cargando imágenes")
 
     # create a pool with the number of cores
-    pool = mp.Pool(mp.cpu_count())
+    pool = Pool(mp.cpu_count())
 
     # labels array
     classes = []  
@@ -98,24 +99,27 @@ def load_training_data():
 
     # return all the data collected
     return np.array(predictors), np.array(classes)
+    
 
-def train(training_data, classes, kernel=cv2.ml.SVM_LINEAR):
+def train_kernels(training_data, classes, kernel=cv2.ml.SVM_LINEAR):
     """
-        Entrena el clasificador
+    Entrena el clasificador
 
-        Parameters:
-        training_data (np.array): datos de entrenamiento
-        classes (np.array): clases asociadas a los datos de entrenamiento
+    Parameters:
+    training_data (np.array): datos de entrenamiento
+    classes (np.array): clases asociadas a los datos de entrenamiento
 
-        Returns:
-        cv2.SVM: un clasificador SVM
+    Returns:
+    cv2.SVM: un clasificador SVM
     """
+
+    print("training on kernel:", kernel)
+
     svm = cv2.ml.SVM_create()
     svm.setType(cv2.ml.SVM_C_SVC)
     svm.setKernel(kernel)
     svm.setDegree(2)
     svm.train(training_data, cv2.ml.ROW_SAMPLE, classes)
-
 
     return svm
 
@@ -157,39 +161,34 @@ def test(model, predict_imgs_hog):
 if __name__ == "__main__":
 
 
-    df = pd.DataFrame(columns=['kernel', 'mean', 'sd'])
     training_data, classes = load_training_data() 
-    # kernels = {"linear":cv2.ml.SVM_LINEAR, "polynomial":cv2.ml.SVM_POLY, "rbf":cv2.ml.SVM_RBF, "sigmoid":cv2.ml.SVM_SIGMOID, "chi2":cv2.ml.SVM_CHI2}
-    kernels = {"linear":cv2.ml.SVM_LINEAR, "polynomial":cv2.ml.SVM_POLY}
+    kernels = {"linear":cv2.ml.SVM_LINEAR, "polynomial":cv2.ml.SVM_POLY, "rbf":cv2.ml.SVM_RBF, "sigmoid":cv2.ml.SVM_SIGMOID}
+    df = pd.DataFrame(columns=kernels.keys())
     kfold = KFold(n_splits=5)
 
-    # load all the images
-    classifiers = []
-    test_acc = []
+    i = 1
+    for train_index, test_index in kfold.split(training_data):
+        X_train, X_test = training_data[train_index], training_data[test_index]
+        y_train, y_test = classes[train_index], classes[test_index]
 
+        pool = Pool(mp.cpu_count())
+        classifiers = [pool.apply(train_kernels, args=(X_train, y_train, kernel)) for kernel in kernels.values()]
 
-    for kernel in kernels.keys():
-        print(kernel)
-        i = 1
-        for train_index, test_index in kfold.split(training_data):
-            print("Training fold:", i)
-            X_train, X_test = training_data[train_index], training_data[test_index]
-            y_train, y_test = classes[train_index], classes[test_index]
-            
-            model = train(X_train, y_train, kernels[kernel])
-            classifiers.append(model)
+        predictions = [pool.apply(test, args=(model, X_test)) for model in classifiers]
+        pool.close()
+        pool.join()
 
-            test_pred = test(model, X_test)
-            score = [p == l for p, l in zip(test_pred, y_test)]
-            test_acc.append(np.count_nonzero(score) / len(X_test) * 100)
-            i = i + 1
-
-        df = df.append({"kernel":kernel, "mean":np.mean(test_acc), "sd":np.std(test_acc)}, ignore_index=True)
         
+        scores = [[p == l for p, l in zip(pred, y_test)] for pred in predictions]
+        accuracies = [np.count_nonzero(score) / len(X_test) * 100 for score in scores]
+        df = df.append(dict(zip(kernels, accuracies)), ignore_index=True)
+        print("Finished fold #{}".format(i))
+        i = i + 1
+
+    print("\n\n")
     print(df)
+    print("\n\n")
         
-
-    print(test_acc)
     
     # get some images to predict
     random_samples = get_random_sample_tests(-1)
@@ -199,7 +198,7 @@ if __name__ == "__main__":
     random_labels = [pair[1] for pair in random_samples]
 
     # compute the hogs
-    pool = mp.Pool(mp.cpu_count())
+    pool = Pool(mp.cpu_count())
     random_hogs = pool.map(compute_hog, random_imgs)
 
 
