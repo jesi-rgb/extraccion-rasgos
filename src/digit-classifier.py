@@ -160,7 +160,6 @@ def test(model, predict_imgs_hog):
 
 if __name__ == "__main__":
 
-
     training_data, classes = load_training_data() 
     kernels = {"linear":cv2.ml.SVM_LINEAR, "polynomial":cv2.ml.SVM_POLY, "rbf":cv2.ml.SVM_RBF, "sigmoid":cv2.ml.SVM_SIGMOID}
     df = pd.DataFrame(columns=kernels.keys())
@@ -182,7 +181,7 @@ if __name__ == "__main__":
         scores = [[p == l for p, l in zip(pred, y_test)] for pred in predictions]
         accuracies = [np.count_nonzero(score) / len(X_test) * 100 for score in scores]
         df = df.append(dict(zip(kernels, accuracies)), ignore_index=True)
-        print("Finished fold #{}".format(i))
+        print("Finished fold #{}\n".format(i))
         i = i + 1
 
     print("\n\n")
