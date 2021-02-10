@@ -20,18 +20,25 @@ class LBPDescriptor():
         h, w = img.shape
 
         windows = sliding_window_view(img, window_shape=(self.radius, self.radius))
-        print(windows.shape)
-        self.take_adjacents(windows[0])
+        reshaped = np.reshape(windows, newshape=(windows.shape[0] * windows.shape[1], windows.shape[2], windows.shape[3]))
+        a = map(self.take_adjacents, reshaped)
+
 
     def take_adjacents(self, window):
         '''
         Take a window from an image and return the corresponding
         number that this center pixel should have.
         '''
-        # print(window)
-        # print(window[0])
-
-
+        print(window)
+        r, c = window.shape
+        center = window[int(r/2), int(c/2)]
+        final_number = []
+        final_number.extend(window[0])
+        final_number.extend(window[1:,c-1])
+        final_number.extend(reversed(window[r-1,:-1]))
+        final_number.extend(reversed(window[1:-1,0]))
+        value = sum(v<<i for i, v in enumerate(final_number[::-1] >= center))
+        return value
 
 
 if __name__ == "__main__":
