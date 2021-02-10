@@ -6,7 +6,7 @@ repo: https://github.com/jesi-rgb/extraccion-rasgos
 """
 En una primera aproximación, seguir el esquema 
 del ejercicio de clase: entrenar un clasificador 
-SVM2, con HoG3 como descriptor, y usarlo para 
+SVM, con HoG como descriptor, y usarlo para 
 predecir la clase de una serie de imágenes 
 de entrada dadas (en este caso, usando las 
 imágenes de dígitos en lugar de las de peatones).
