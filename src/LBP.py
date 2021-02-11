@@ -42,7 +42,7 @@ class LBPDescriptor():
 
         # Calculate the histogram for the lbp img and return it
 
-        return (np.histogram(lbp_img, bins=256, density=False)[0] / (h*w)).astype('float32')
+        return (np.histogram(lbp_img, bins=256, density=False)[0]).astype('float32')
 
     def take_adjacents(self, window):
         '''

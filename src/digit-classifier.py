@@ -18,7 +18,7 @@ import cv2
 import numpy as np
 import os
 import multiprocessing as mp
-from multiprocessing.pool import ThreadPool as Pool
+from multiprocessing.pool import ThreadPool as TPool
 from sklearn.model_selection import KFold
 import pandas as pd
 from LBP import LBPDescriptor
@@ -82,18 +82,18 @@ def load_training_data(histogram="hog"):
     img_paths = []
 
     # get all the paths for 0s and 1s, and append the labels
-    for filename in os.listdir(PATH_TO_TRAIN_0)[:50]:
+    for filename in os.listdir(PATH_TO_TRAIN_0):
         # using path.join guarantees compatibility across platforms
         img_paths.append(os.path.join(PATH_TO_TRAIN_0, filename))
         classes.append(0)
 
-    for filename in os.listdir(PATH_TO_TRAIN_1)[:50]:
+    for filename in os.listdir(PATH_TO_TRAIN_1):
         # using path.join guarantees compatibility across platforms
         img_paths.append(os.path.join(PATH_TO_TRAIN_1, filename))
         classes.append(1)
 
     # create a pool with the number of cores
-    pool = Pool(mp.cpu_count())
+    pool = mp.Pool(mp.cpu_count())
 
     # having all the paths, we can read all the imgs
     # in parallel, which is much faster
@@ -141,16 +141,10 @@ def train_kernels(training_data, classes, kernel=cv2.ml.SVM_LINEAR):
     return svm
 
 
-def get_random_sample_tests(n=10):
+def get_sample_tests(n=10, histogram="hog"):
     img_arrays = []
     classes = []
 
-    # we could use some parallelization here, but for
-    # small numbers like 10 as an example it is not 
-    # really worth it.
-
-    # os listdir order is arbitrary, so each time
-    # we'll get a different set of images
     for filename in os.listdir(PATH_TO_TEST_0)[:n]:
         filename = os.path.join(PATH_TO_TEST_0, filename)
         img_arrays.append(cv2.imread(filename, 0))
@@ -161,13 +155,20 @@ def get_random_sample_tests(n=10):
         img_arrays.append(cv2.imread(filename, 0))
         classes.append(1)
 
-    imgs_classes = list(zip(img_arrays, classes))
+ 
+    pool = mp.Pool(mp.cpu_count())
 
-    #shuffles in place
-    np.random.shuffle(imgs_classes)
+    hogs = None
+    if(histogram == "hog"):
+        hogs = pool.map_async(compute_hog, img_arrays).get()
+    elif histogram == "lbp":
+        hogs = pool.map_async(LBPDESC.compute, img_arrays).get()
 
-    print("Tomando imágenes aleatorias para test")
-    return imgs_classes
+    pool.close()
+    pool.join()
+
+    print("Tomados histogramas para test")
+    return hogs, classes
 
     
 def test(model, predict_imgs_hog):
@@ -177,11 +178,11 @@ def test(model, predict_imgs_hog):
 
 if __name__ == "__main__":
 
-
+    hist_mode = "lbp"
     start_time = time.time()
 
-    training_data, classes = load_training_data(histogram="lbp")
-    print(training_data[0])
+    training_data, classes = load_training_data(histogram=hist_mode)
+
     kernels = {"linear":cv2.ml.SVM_LINEAR, "polynomial":cv2.ml.SVM_POLY, "rbf":cv2.ml.SVM_RBF, "sigmoid":cv2.ml.SVM_SIGMOID}
     df = pd.DataFrame(columns=kernels.keys())
     kfold = KFold(n_splits=5)
@@ -191,7 +192,7 @@ if __name__ == "__main__":
         X_train, X_test = training_data[train_index], training_data[test_index]
         y_train, y_test = classes[train_index], classes[test_index]
 
-        pool = Pool(mp.cpu_count())
+        pool = TPool(mp.cpu_count())
         classifiers = [pool.apply(train_kernels, args=(X_train, y_train, kernel)) for kernel in kernels.values()]
 
         predictions = [pool.apply(test, args=(model, X_test)) for model in classifiers]
@@ -211,24 +212,13 @@ if __name__ == "__main__":
         
     
     # get some images to predict
-    random_samples = get_random_sample_tests(100)
-
-    # extract the images and the labels to check the score
-    random_imgs = [pair[0] for pair in random_samples]
-    random_labels = [pair[1] for pair in random_samples]
-
-    # compute the hogs
-    pool = Pool(mp.cpu_count())
-    random_hogs = pool.map(compute_lbp, random_imgs)
-    pool.close()
-    pool.join()
-    
+    test_hogs, test_labels = get_sample_tests(-1, histogram=hist_mode)
 
 
     for model in classifiers:
-        test_pred = test(model, random_hogs)
+        test_pred = test(model, test_hogs)
         # # Very simple score measure
-        score = np.count_nonzero([p == l for p, l in zip(test_pred, random_labels)]) / len(random_labels)
+        score = np.count_nonzero([p == l for p, l in zip(test_pred, test_labels)]) / len(test_labels)
         print("Score right/all: {}%".format(score * 100))
 
 
