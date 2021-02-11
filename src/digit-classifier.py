@@ -21,6 +21,7 @@ import multiprocessing as mp
 from multiprocessing.pool import ThreadPool as Pool
 from sklearn.model_selection import KFold
 import pandas as pd
+from LBP import LBPDescriptor
 
 import time
 
@@ -39,7 +40,7 @@ N_BINS = 9
 
 
 HOG = cv2.HOGDescriptor(WIN_SIZE, BLOCK_SIZE, STEP_SIZE, CELL_SIZE, N_BINS)
-
+LBPDESC = LBPDescriptor()
 
 def compute_hog(img):
     '''
@@ -47,6 +48,13 @@ def compute_hog(img):
     of the HOGs in the images
     '''
     return HOG.compute(img)
+
+def compute_lbp(img):
+    '''
+    Helper function to parallelize the computing 
+    of the HOGs in the images
+    '''
+    return LBPDESC.compute(img)
 
 def read_img_bw(path):
     '''
@@ -56,19 +64,16 @@ def read_img_bw(path):
     return cv2.imread(path, 0)
     
 
-def load_training_data():
+def load_training_data(histogram="hog"):
     """
-    Lee las imágenes de entrenamiento (positivas y negativas) y calcula sus
-    descriptores para el entrenamiento.
+    Carga las imágenes de entrenamiento y devuelve sus histogramas.
 
-    returns:
-    np.array: numpy array con los descriptores de las imágenes leídas
-    np.array: numpy array con las etiquetas de las imágenes leídas
+    `histogram`: "hog" o "lbp". Crea los histogramas con el método
+    HOG, o el método LBP.
     """ 
     print("Cargando imágenes")
 
-    # create a pool with the number of cores
-    pool = Pool(mp.cpu_count())
+    
 
     # labels array
     classes = []  
@@ -77,28 +82,37 @@ def load_training_data():
     img_paths = []
 
     # get all the paths for 0s and 1s, and append the labels
-    for filename in os.listdir(PATH_TO_TRAIN_0):
+    for filename in os.listdir(PATH_TO_TRAIN_0)[:50]:
         # using path.join guarantees compatibility across platforms
         img_paths.append(os.path.join(PATH_TO_TRAIN_0, filename))
         classes.append(0)
 
-    for filename in os.listdir(PATH_TO_TRAIN_1):
+    for filename in os.listdir(PATH_TO_TRAIN_1)[:50]:
         # using path.join guarantees compatibility across platforms
         img_paths.append(os.path.join(PATH_TO_TRAIN_1, filename))
         classes.append(1)
+
+    # create a pool with the number of cores
+    pool = Pool(mp.cpu_count())
 
     # having all the paths, we can read all the imgs
     # in parallel, which is much faster
     images = pool.map(read_img_bw, img_paths)
 
+
+    print("Calculando histogramas de {} imágenes".format(len(images)))
     # and compute the hogs also in parallel
-    predictors = pool.map(compute_hog, images)
+    predictors = None
+    if(histogram == "hog"):
+        predictors = pool.map_async(compute_hog, images).get()
+    elif histogram == "lbp":
+        predictors = pool.map_async(LBPDESC.compute, images).get()
     
     # important: always close the pool
     pool.close()
     pool.join()
 
-    print("Imágenes cargadas")
+    print("Histogramas generados")
 
     # return all the data collected
     return np.array(predictors), np.array(classes)
@@ -163,9 +177,11 @@ def test(model, predict_imgs_hog):
 
 if __name__ == "__main__":
 
-    print("\n\n")
+
     start_time = time.time()
-    training_data, classes = load_training_data() 
+
+    training_data, classes = load_training_data(histogram="lbp")
+    print(training_data[0])
     kernels = {"linear":cv2.ml.SVM_LINEAR, "polynomial":cv2.ml.SVM_POLY, "rbf":cv2.ml.SVM_RBF, "sigmoid":cv2.ml.SVM_SIGMOID}
     df = pd.DataFrame(columns=kernels.keys())
     kfold = KFold(n_splits=5)
@@ -195,7 +211,7 @@ if __name__ == "__main__":
         
     
     # get some images to predict
-    random_samples = get_random_sample_tests(-1)
+    random_samples = get_random_sample_tests(100)
 
     # extract the images and the labels to check the score
     random_imgs = [pair[0] for pair in random_samples]
@@ -203,10 +219,7 @@ if __name__ == "__main__":
 
     # compute the hogs
     pool = Pool(mp.cpu_count())
-    random_hogs = pool.map(compute_hog, random_imgs)
-
-
-    
+    random_hogs = pool.map(compute_lbp, random_imgs)
     pool.close()
     pool.join()
     
