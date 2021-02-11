@@ -4,8 +4,8 @@ repo: https://github.com/jesi-rgb/extraccion-rasgos
 '''
 
 import numpy as np
-from skimage import util
 from numpy.lib.stride_tricks import sliding_window_view
+from numpy.core.records import fromarrays
 
 class LBPDescriptor():
     def __init__(self):
@@ -23,20 +23,19 @@ class LBPDescriptor():
         reshaped = np.reshape(windows, newshape=(windows.shape[0] * windows.shape[1], windows.shape[2], windows.shape[3]))
         a = map(self.take_adjacents, reshaped)
 
+        print(list(a))
 
     def take_adjacents(self, window):
         '''
         Take a window from an image and return the corresponding
         number that this center pixel should have.
         '''
-        print(window)
+
         r, c = window.shape
         center = window[int(r/2), int(c/2)]
-        final_number = []
-        final_number.extend(window[0])
-        final_number.extend(window[1:,c-1])
-        final_number.extend(reversed(window[r-1,:-1]))
-        final_number.extend(reversed(window[1:-1,0]))
+
+        final_number = np.concatenate([window[0], window[1:,c-1], np.flip(window[r-1,:-1]), np.flip(window[1:-1,0])]).ravel()
+
         value = sum(v<<i for i, v in enumerate(final_number[::-1] >= center))
         return value
 
