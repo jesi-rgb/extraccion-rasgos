@@ -3,12 +3,9 @@ author: Jesús Enrique Cartas Rascón
 repo: https://github.com/jesi-rgb/extraccion-rasgos
 '''
 
-import numpy as np
+import numpy as np, cv2
 from numpy.lib.stride_tricks import sliding_window_view
 from numpy.core.records import fromarrays
-import multiprocessing as mp
-import os
-import time
 
 PATH_TO_TRAIN_0 = "mnist_data/train/zero"
 
@@ -42,9 +39,10 @@ class LBPDescriptor():
         # we pad the array with wrap mode, to get those borders
         # back in a thoughtful way
         lbp_img = np.pad(img_values, ((1, 1), (1, 1)), 'wrap')
-        
+
         # Calculate the histogram for the lbp img and return it
-        return np.histogram(lbp_img, bins=256, density=False)[0]
+
+        return (np.histogram(lbp_img, bins=256, density=False)[0] / (h*w)).astype('float32')
 
     def take_adjacents(self, window):
         '''
@@ -81,8 +79,14 @@ class LBPDescriptor():
         return value
 
 
+
+# SAMPLE EXECUTION. THIS CODE WONT BE USED UNLESS THE
+# FILE IS EXPLICITLY CALLED AS "python LBP.py".
 if __name__ == "__main__":
     import cv2
+    import multiprocessing as mp
+    import os
+    import time
     PATH_TO_IMG = "mnist_data/train/zero/0.png"
 
     imgs = []
