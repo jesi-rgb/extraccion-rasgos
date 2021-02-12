@@ -47,7 +47,7 @@ class LBPDescriptor():
         
         # Calculate the corresponding value for every 
         # window and return the resulting vector
-        values = [self.take_adjacents(window) for window in reshaped_windows]
+        values = [self.binary_neighbours(window) for window in reshaped_windows]
         
         # Reshape that vector to be a new "LBP IMG"
         img_values = np.reshape(values, newshape=(windows.shape[0], windows.shape[1]))
@@ -61,7 +61,7 @@ class LBPDescriptor():
 
         return (np.histogram(lbp_img, bins=256, density=False)[0]).astype('float32')
 
-    def take_adjacents(self, window):
+    def binary_neighbours(self, window):
         '''
         Take a window from an image and return the corresponding
         number that this center pixel will have, given the local 
