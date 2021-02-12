@@ -35,6 +35,8 @@ PATH_TO_TRAIN_1 = "mnist_data/train/one"
 PATH_TO_TEST_0 = "mnist_data/test/zero"
 PATH_TO_TEST_1 = "mnist_data/test/one"
 
+PATH_TO_TRAIN = "mnist_data/train"
+
 # parameters for hog
 WIN_SIZE = (28, 28)
 BLOCK_SIZE = (8, 8)
@@ -68,7 +70,7 @@ def read_img_bw(path):
     return cv2.imread(path, 0)
     
 
-def load_training_data(histogram="hog"):
+def load_training_data(n=1000, histogram="hog"):
     """
     Carga las imágenes de entrenamiento y devuelve sus histogramas.
 
@@ -85,16 +87,46 @@ def load_training_data(histogram="hog"):
     # all the imgs will lie here  
     img_paths = []
 
-    # get all the paths for 0s and 1s, and append the labels
-    for filename in os.listdir(PATH_TO_TRAIN_0):
-        # using path.join guarantees compatibility across platforms
-        img_paths.append(os.path.join(PATH_TO_TRAIN_0, filename))
-        classes.append(0)
+    for folder in os.listdir(PATH_TO_TRAIN):
+        # get all the paths for 0s and 1s, and append the labels
+        for filename in os.listdir(os.path.join(PATH_TO_TRAIN, folder))[:n]:
+            # using path.join guarantees compatibility across platforms
+            img_paths.append(os.path.join(PATH_TO_TRAIN, folder, filename))
+            if folder == 'zero':
+                classes.append(0)
 
-    for filename in os.listdir(PATH_TO_TRAIN_1):
-        # using path.join guarantees compatibility across platforms
-        img_paths.append(os.path.join(PATH_TO_TRAIN_1, filename))
-        classes.append(1)
+            elif folder == 'one':
+                classes.append(1)
+                
+            elif folder == 'two':
+                classes.append(2)
+                
+            elif folder == 'three':
+                classes.append(3)
+                
+            elif folder == 'four':
+                classes.append(4)
+                
+            elif folder == 'five':
+                classes.append(5)
+                
+            elif folder == 'six':
+                classes.append(6)
+                
+            elif folder == 'seven':
+                classes.append(7)
+                
+            elif folder == 'eight':
+                classes.append(8)
+
+            elif folder == 'nine':
+                classes.append(9)
+                
+
+    # for filename in os.listdir(PATH_TO_TRAIN_1):
+    #     # using path.join guarantees compatibility across platforms
+    #     img_paths.append(os.path.join(PATH_TO_TRAIN_1, filename))
+    #     classes.append(1)
 
     # create a pool with the number of cores
     pool = mp.Pool(mp.cpu_count())
