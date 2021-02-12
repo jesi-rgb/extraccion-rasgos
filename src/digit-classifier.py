@@ -14,16 +14,20 @@ imágenes de dígitos en lugar de las de peatones).
 En mi caso, mi DNI acaba en 01, así que aprenderemos
 los dígitos 0 y 1.
 """
-import cv2
-import numpy as np
-import os
-import multiprocessing as mp
-from multiprocessing.pool import ThreadPool as TPool
-from sklearn.model_selection import KFold
 import pandas as pd
+import numpy as np
+import argparse
+import time
+import os
+
+import multiprocessing as mp
+
+import cv2
+
+from sklearn.model_selection import KFold
+
 from LBP import LBPDescriptor
 
-import time
 
 
 PATH_TO_TRAIN_0 = "mnist_data/train/zero"
@@ -71,7 +75,7 @@ def load_training_data(histogram="hog"):
     `histogram`: "hog" o "lbp". Crea los histogramas con el método
     HOG, o el método LBP.
     """ 
-    print("Cargando imágenes")
+    print("\n> Cargando imágenes")
 
     
 
@@ -100,7 +104,7 @@ def load_training_data(histogram="hog"):
     images = pool.map(read_img_bw, img_paths)
 
 
-    print("Calculando histogramas de {} imágenes".format(len(images)))
+    print("\n> Calculando histogramas {} de {} imágenes".format(histogram.upper(), len(images)))
     # and compute the hogs also in parallel
     predictors = None
     if(histogram == "hog"):
@@ -112,7 +116,7 @@ def load_training_data(histogram="hog"):
     pool.close()
     pool.join()
 
-    print("Histogramas generados")
+    print("\n> Histogramas generados")
 
     # return all the data collected
     return np.array(predictors), np.array(classes)
@@ -130,6 +134,7 @@ def train_kernels(training_data, classes, kernel=cv2.ml.SVM_LINEAR):
     cv2.SVM: un clasificador SVM
     """
 
+    
     print("Training on kernel:", kernel)
 
     svm = cv2.ml.SVM_create()
@@ -142,6 +147,7 @@ def train_kernels(training_data, classes, kernel=cv2.ml.SVM_LINEAR):
 
 
 def get_sample_tests(n=10, histogram="hog"):
+    print("\n> Calculating histograms for test images.")
     img_arrays = []
     classes = []
 
@@ -167,7 +173,7 @@ def get_sample_tests(n=10, histogram="hog"):
     pool.close()
     pool.join()
 
-    print("Tomados histogramas para test")
+    print("\n> Finished test histograms.")
     return hogs, classes
 
     
@@ -178,48 +184,58 @@ def test(model, predict_imgs_hog):
 
 if __name__ == "__main__":
 
-    hist_mode = "lbp"
-    start_time = time.time()
+    ap = argparse.ArgumentParser()
+    ap.add_argument("-hist", "--histogram", required=False,
+    help="Histogram mode: hog or lbp", default="hog")
+    
+    ap.add_argument("-f", "--fold", required=False,
+    help="Number of folds for the CV", default=5)
+    
+    args = ap.parse_args()
 
+    hist_mode = args.histogram
+
+    start_time = time.time()
+    
     training_data, classes = load_training_data(histogram=hist_mode)
 
     kernels = {"linear":cv2.ml.SVM_LINEAR, "polynomial":cv2.ml.SVM_POLY, "rbf":cv2.ml.SVM_RBF, "sigmoid":cv2.ml.SVM_SIGMOID}
     df = pd.DataFrame(columns=kernels.keys())
-    kfold = KFold(n_splits=5)
+    kfold = KFold(n_splits=int(args.fold))
 
+    print("\n> Starting SVM training\n")
     i = 1
     for train_index, test_index in kfold.split(training_data):
         X_train, X_test = training_data[train_index], training_data[test_index]
         y_train, y_test = classes[train_index], classes[test_index]
 
-        pool = TPool(mp.cpu_count())
-        classifiers = [pool.apply(train_kernels, args=(X_train, y_train, kernel)) for kernel in kernels.values()]
+        classifiers = [train_kernels(X_train, y_train, kernel) for kernel in kernels.values()]
 
-        predictions = [pool.apply(test, args=(model, X_test)) for model in classifiers]
-        pool.close()
-        pool.join()
-
-        
+        predictions = [test(model, X_test) for model in classifiers]
+                
         scores = [[p == l for p, l in zip(pred, y_test)] for pred in predictions]
         accuracies = [np.count_nonzero(score) / len(X_test) * 100 for score in scores]
+        
         df = df.append(dict(zip(kernels, accuracies)), ignore_index=True)
+        
         print("Finished fold #{}\n".format(i))
+        
         i = i + 1
 
-    print("\n\n")
+    print("\n> Training results (validation accuracy per fold):\n")
     print(df)
-    print("\n\n")
         
     
     # get some images to predict
-    test_hogs, test_labels = get_sample_tests(-1, histogram=hist_mode)
+    test_hogs, test_labels = get_sample_tests(50, histogram=hist_mode)
 
 
-    for model in classifiers:
+    print("\n> Test results:")
+    for model, name in zip(classifiers, kernels.keys()):
         test_pred = test(model, test_hogs)
         # # Very simple score measure
         score = np.count_nonzero([p == l for p, l in zip(test_pred, test_labels)]) / len(test_labels)
-        print("Score right/all: {}%".format(score * 100))
+        print("{}: \t\t{}%".format(name, score * 100))
 
 
-    print("--- Total execution took {} seconds ---".format(time.time() - start_time))
+    print("\n> --- Total execution took {} seconds ---".format(time.time() - start_time))
