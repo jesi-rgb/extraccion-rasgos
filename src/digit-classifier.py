@@ -217,7 +217,6 @@ def get_sample_tests(n=500, histogram="hog"):
             elif folder == 'nine':
                 classes.append(9)
 
-    print(img_arrays[1:3])
  
     pool = mp.Pool(mp.cpu_count())
 
