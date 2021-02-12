@@ -3,21 +3,38 @@ author: Jesús Enrique Cartas Rascón
 repo: https://github.com/jesi-rgb/extraccion-rasgos
 '''
 
-import numpy as np, cv2
+import numpy as np
 from numpy.lib.stride_tricks import sliding_window_view
 from numpy.core.records import fromarrays
 
 PATH_TO_TRAIN_0 = "mnist_data/train/zero"
 
 class LBPDescriptor():
+    '''
+    Class for the Local Binary Pattern descriptor.
+
+    '''
+
     def __init__(self, r=3):
         self.radius = r
 
     
     def compute(self, img):
-        # img is a 2-dim np array
 
-        # first take the neighbourhood
+        '''
+        Class function for the Local Binary Pattern descriptor. Takes
+        an image (2-dim array) and computes the local binary pattern
+        for all the pixels, creates the LBP image and returns the 
+        histogram of that image.
+
+        Parameters:
+        
+        > `img`: ndarray. The image to obtain the descriptor from.
+        
+        > returns: ndarray float32. The LBP histogram for img.
+        '''
+
+        # first take the shape
         h, w = img.shape
 
         # Calculate all the possible windows for this image with the shape
@@ -49,6 +66,13 @@ class LBPDescriptor():
         Take a window from an image and return the corresponding
         number that this center pixel will have, given the local 
         binary pattern.
+
+        Parameters:
+        > `window`: ndarray. A small portion of the image to extract
+        the local binary pattern from.
+
+        > returns: int. The associated value for the center pixel
+        of this window.
         '''
 
         # we take the window shape
@@ -81,7 +105,7 @@ class LBPDescriptor():
 
 
 # SAMPLE EXECUTION. THIS CODE WONT BE USED UNLESS THE
-# FILE IS EXPLICITLY CALLED AS "python LBP.py".
+# FILE IS EXPLICITLY CALLED AS "python /path/to/LBP.py".
 if __name__ == "__main__":
     import cv2
     import multiprocessing as mp
