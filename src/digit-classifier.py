@@ -30,12 +30,9 @@ from LBP import LBPDescriptor
 
 
 
-PATH_TO_TRAIN_0 = "mnist_data/train/zero"
-PATH_TO_TRAIN_1 = "mnist_data/train/one"
-PATH_TO_TEST_0 = "mnist_data/test/zero"
-PATH_TO_TEST_1 = "mnist_data/test/one"
 
 PATH_TO_TRAIN = "mnist_data/train"
+PATH_TO_TEST = "mnist_data/test"
 
 # parameters for hog
 WIN_SIZE = (28, 28)
@@ -92,6 +89,7 @@ def load_training_data(n=1000, histogram="hog"):
         for filename in os.listdir(os.path.join(PATH_TO_TRAIN, folder))[:n]:
             # using path.join guarantees compatibility across platforms
             img_paths.append(os.path.join(PATH_TO_TRAIN, folder, filename))
+            
             if folder == 'zero':
                 classes.append(0)
 
@@ -178,20 +176,46 @@ def train_kernels(training_data, classes, kernel=cv2.ml.SVM_LINEAR):
     return svm
 
 
-def get_sample_tests(n=10, histogram="hog"):
+def get_sample_tests(n=500, histogram="hog"):
     print("\n> Calculating histograms for test images.")
     img_arrays = []
     classes = []
 
-    for filename in os.listdir(PATH_TO_TEST_0)[:n]:
-        filename = os.path.join(PATH_TO_TEST_0, filename)
-        img_arrays.append(cv2.imread(filename, 0))
-        classes.append(0)
+    for folder in os.listdir(PATH_TO_TEST):
+        # get all the paths for 0s and 1s, and append the labels
+        for filename in os.listdir(os.path.join(PATH_TO_TEST, folder))[:n]:
+            # using path.join guarantees compatibility across platforms
+            img_paths.append(os.path.join(PATH_TO_TEST, folder, filename))
+            
+            if folder == 'zero':
+                classes.append(0)
 
-    for filename in os.listdir(PATH_TO_TEST_1)[:n]:
-        filename = os.path.join(PATH_TO_TEST_1, filename)
-        img_arrays.append(cv2.imread(filename, 0))
-        classes.append(1)
+            elif folder == 'one':
+                classes.append(1)
+                
+            elif folder == 'two':
+                classes.append(2)
+                
+            elif folder == 'three':
+                classes.append(3)
+                
+            elif folder == 'four':
+                classes.append(4)
+                
+            elif folder == 'five':
+                classes.append(5)
+                
+            elif folder == 'six':
+                classes.append(6)
+                
+            elif folder == 'seven':
+                classes.append(7)
+                
+            elif folder == 'eight':
+                classes.append(8)
+
+            elif folder == 'nine':
+                classes.append(9)
 
  
     pool = mp.Pool(mp.cpu_count())
@@ -229,7 +253,7 @@ if __name__ == "__main__":
 
     start_time = time.time()
     
-    training_data, classes = load_training_data(histogram=hist_mode)
+    training_data, classes = load_training_data(n=50, histogram=hist_mode)
 
     kernels = {"linear":cv2.ml.SVM_LINEAR, "polynomial":cv2.ml.SVM_POLY, "rbf":cv2.ml.SVM_RBF, "sigmoid":cv2.ml.SVM_SIGMOID}
     df = pd.DataFrame(columns=kernels.keys())
