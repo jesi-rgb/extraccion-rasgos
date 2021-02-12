@@ -185,7 +185,7 @@ def get_sample_tests(n=500, histogram="hog"):
         # get all the paths for 0s and 1s, and append the labels
         for filename in os.listdir(os.path.join(PATH_TO_TEST, folder))[:n]:
             # using path.join guarantees compatibility across platforms
-            img_paths.append(os.path.join(PATH_TO_TEST, folder, filename))
+            img_arrays.append(os.path.join(PATH_TO_TEST, folder, filename))
             
             if folder == 'zero':
                 classes.append(0)
