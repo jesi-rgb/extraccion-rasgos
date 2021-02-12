@@ -178,14 +178,14 @@ def train_kernels(training_data, classes, kernel=cv2.ml.SVM_LINEAR):
 
 def get_sample_tests(n=500, histogram="hog"):
     print("\n> Calculating histograms for test images.")
-    img_arrays = []
+    img_paths = []
     classes = []
 
     for folder in os.listdir(PATH_TO_TEST):
         # get all the paths for 0s and 1s, and append the labels
         for filename in os.listdir(os.path.join(PATH_TO_TEST, folder))[:n]:
             # using path.join guarantees compatibility across platforms
-            img_arrays.append(os.path.join(PATH_TO_TEST, folder, filename))
+            img_paths.append(os.path.join(PATH_TO_TEST, folder, filename))
             
             if folder == 'zero':
                 classes.append(0)
@@ -217,14 +217,17 @@ def get_sample_tests(n=500, histogram="hog"):
             elif folder == 'nine':
                 classes.append(9)
 
+    print(img_arrays[1:3])
  
     pool = mp.Pool(mp.cpu_count())
 
+    img_arrays = pool.map(read_img_bw, img_paths)
+
     hogs = None
     if(histogram == "hog"):
-        hogs = pool.map_async(compute_hog, img_arrays).get()
-    elif histogram == "lbp":
-        hogs = pool.map_async(LBPDESC.compute, img_arrays).get()
+        hogs = pool.map(compute_hog, img_arrays)
+    elif (histogram == "lbp"):
+        hogs = pool.map(LBPDESC.compute, img_arrays)
 
     pool.close()
     pool.join()
