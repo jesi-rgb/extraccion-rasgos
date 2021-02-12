@@ -29,8 +29,6 @@ from sklearn.model_selection import KFold
 from LBP import LBPDescriptor
 
 
-
-
 PATH_TO_TRAIN = "mnist_data/train"
 PATH_TO_TEST = "mnist_data/test"
 
@@ -76,8 +74,6 @@ def load_training_data(n=1000, histogram="hog"):
     """ 
     print("\n> Cargando imágenes")
 
-    
-
     # labels array
     classes = []  
 
@@ -121,10 +117,7 @@ def load_training_data(n=1000, histogram="hog"):
                 classes.append(9)
                 
 
-    # for filename in os.listdir(PATH_TO_TRAIN_1):
-    #     # using path.join guarantees compatibility across platforms
-    #     img_paths.append(os.path.join(PATH_TO_TRAIN_1, filename))
-    #     classes.append(1)
+    np.random.shuffle(img_paths)
 
     # create a pool with the number of cores
     pool = mp.Pool(mp.cpu_count())
@@ -218,6 +211,8 @@ def get_sample_tests(n=500, histogram="hog"):
                 classes.append(9)
 
  
+    np.random.shuffle(img_paths)
+    
     pool = mp.Pool(mp.cpu_count())
 
     img_arrays = pool.map(read_img_bw, img_paths)
@@ -255,7 +250,7 @@ if __name__ == "__main__":
 
     start_time = time.time()
     
-    training_data, classes = load_training_data(n=50, histogram=hist_mode)
+    training_data, classes = load_training_data(histogram=hist_mode)
 
     kernels = {"linear":cv2.ml.SVM_LINEAR, "polynomial":cv2.ml.SVM_POLY, "rbf":cv2.ml.SVM_RBF, "sigmoid":cv2.ml.SVM_SIGMOID}
     df = pd.DataFrame(columns=kernels.keys())
@@ -285,7 +280,7 @@ if __name__ == "__main__":
         
     
     # get some images to predict
-    test_hogs, test_labels = get_sample_tests(50, histogram=hist_mode)
+    test_hogs, test_labels = get_sample_tests(-1, histogram=hist_mode)
 
 
     print("\n> Test results:")
