@@ -65,14 +65,17 @@ def read_img_bw(path):
     return cv2.imread(path, 0)
     
 
-def load_training_data(n=1000, histogram="hog"):
+def load_training_data(n_classes=2, n=1000, histogram="hog"):
     """
     Carga las imágenes de entrenamiento y devuelve sus histogramas.
 
     `histogram`: "hog" o "lbp". Crea los histogramas con el método
     HOG, o el método LBP.
     """ 
-    print("\n> Cargando imágenes")
+
+    all_classes = ['zero', 'one', 'two', 'three', 'four', "five", "six", "seven", "eight", "nine"]
+    selected_classes = all_classes[:n_classes]
+    print("\n> Loading images for classes {}.".format(', '.join(selected_classes)))
 
     # labels array
     classes = []  
@@ -81,40 +84,41 @@ def load_training_data(n=1000, histogram="hog"):
     img_paths = []
 
     for folder in os.listdir(PATH_TO_TRAIN):
-        # get all the paths for 0s and 1s, and append the labels
-        for filename in os.listdir(os.path.join(PATH_TO_TRAIN, folder))[:n]:
-            # using path.join guarantees compatibility across platforms
-            img_paths.append(os.path.join(PATH_TO_TRAIN, folder, filename))
-            
-            if folder == 'zero':
-                classes.append(0)
+        if(folder in selected_classes):
+            # get all the paths for 0s and 1s, and append the labels
+            for filename in os.listdir(os.path.join(PATH_TO_TRAIN, folder))[:n]:
+                # using path.join guarantees compatibility across platforms
+                img_paths.append(os.path.join(PATH_TO_TRAIN, folder, filename))
+                
+                if folder == 'zero':
+                    classes.append(0)
 
-            elif folder == 'one':
-                classes.append(1)
-                
-            elif folder == 'two':
-                classes.append(2)
-                
-            elif folder == 'three':
-                classes.append(3)
-                
-            elif folder == 'four':
-                classes.append(4)
-                
-            elif folder == 'five':
-                classes.append(5)
-                
-            elif folder == 'six':
-                classes.append(6)
-                
-            elif folder == 'seven':
-                classes.append(7)
-                
-            elif folder == 'eight':
-                classes.append(8)
+                elif folder == 'one':
+                    classes.append(1)
+                    
+                elif folder == 'two':
+                    classes.append(2)
+                    
+                elif folder == 'three':
+                    classes.append(3)
+                    
+                elif folder == 'four':
+                    classes.append(4)
+                    
+                elif folder == 'five':
+                    classes.append(5)
+                    
+                elif folder == 'six':
+                    classes.append(6)
+                    
+                elif folder == 'seven':
+                    classes.append(7)
+                    
+                elif folder == 'eight':
+                    classes.append(8)
 
-            elif folder == 'nine':
-                classes.append(9)
+                elif folder == 'nine':
+                    classes.append(9)
                 
 
     np.random.shuffle(img_paths)
@@ -169,50 +173,59 @@ def train_kernels(training_data, classes, kernel=cv2.ml.SVM_LINEAR):
     return svm
 
 
-def get_sample_tests(n=500, histogram="hog"):
+def get_sample_tests(n=500, n_classes=2, histogram="hog"):
     print("\n> Calculating histograms for test images.")
+    
+    all_classes = ['zero', 'one', 'two', 'three', 'four', "five", "six", "seven", "eight", "nine"]
+    selected_classes = all_classes[:n_classes]
+    print("\n> Loading images for {}".format(', '.join(selected_classes)))
+
+    # labels array
+    classes = []  
+
+    # all the imgs will lie here  
     img_paths = []
-    classes = []
 
     for folder in os.listdir(PATH_TO_TEST):
-        # get all the paths for 0s and 1s, and append the labels
-        for filename in os.listdir(os.path.join(PATH_TO_TEST, folder))[:n]:
-            # using path.join guarantees compatibility across platforms
-            img_paths.append(os.path.join(PATH_TO_TEST, folder, filename))
-            
-            if folder == 'zero':
-                classes.append(0)
+        if(folder in selected_classes):
+            # get all the paths for 0s and 1s, and append the labels
+            for filename in os.listdir(os.path.join(PATH_TO_TEST, folder))[:n]:
+                # using path.join guarantees compatibility across platforms
+                img_paths.append(os.path.join(PATH_TO_TEST, folder, filename))
+                
+                if folder == 'zero':
+                    classes.append(0)
 
-            elif folder == 'one':
-                classes.append(1)
-                
-            elif folder == 'two':
-                classes.append(2)
-                
-            elif folder == 'three':
-                classes.append(3)
-                
-            elif folder == 'four':
-                classes.append(4)
-                
-            elif folder == 'five':
-                classes.append(5)
-                
-            elif folder == 'six':
-                classes.append(6)
-                
-            elif folder == 'seven':
-                classes.append(7)
-                
-            elif folder == 'eight':
-                classes.append(8)
+                elif folder == 'one':
+                    classes.append(1)
+                    
+                elif folder == 'two':
+                    classes.append(2)
+                    
+                elif folder == 'three':
+                    classes.append(3)
+                    
+                elif folder == 'four':
+                    classes.append(4)
+                    
+                elif folder == 'five':
+                    classes.append(5)
+                    
+                elif folder == 'six':
+                    classes.append(6)
+                    
+                elif folder == 'seven':
+                    classes.append(7)
+                    
+                elif folder == 'eight':
+                    classes.append(8)
 
-            elif folder == 'nine':
-                classes.append(9)
+                elif folder == 'nine':
+                    classes.append(9)
+                
 
- 
     np.random.shuffle(img_paths)
-    
+
     pool = mp.Pool(mp.cpu_count())
 
     img_arrays = pool.map(read_img_bw, img_paths)
@@ -244,13 +257,19 @@ if __name__ == "__main__":
     ap.add_argument("-f", "--fold", required=False,
     help="Number of folds for the CV", default=5)
     
+    ap.add_argument("-c", "--classes", required=False,
+    help="Number classes to consider. Takes the first n classes in order.", default=2)
+    
+    ap.add_argument("-k", "--samples", required=False,
+    help="Number of samples per class. Defaults to every single image.", default=-1)
+    
     args = ap.parse_args()
 
     hist_mode = args.histogram
 
     start_time = time.time()
     
-    training_data, classes = load_training_data(histogram=hist_mode)
+    training_data, classes = load_training_data(n=int(args.samples), n_classes=int(args.classes), histogram=hist_mode)
 
     kernels = {"linear":cv2.ml.SVM_LINEAR, "polynomial":cv2.ml.SVM_POLY, "rbf":cv2.ml.SVM_RBF, "sigmoid":cv2.ml.SVM_SIGMOID}
     df = pd.DataFrame(columns=kernels.keys())
@@ -280,7 +299,7 @@ if __name__ == "__main__":
         
     
     # get some images to predict
-    test_hogs, test_labels = get_sample_tests(-1, histogram=hist_mode)
+    test_hogs, test_labels = get_sample_tests(n=int(args.samples), n_classes=int(args.classes), histogram=hist_mode)
 
 
     print("\n> Test results:")
